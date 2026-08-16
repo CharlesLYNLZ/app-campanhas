@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#E11F1C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Campanhas">
+<title>Campanhas</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div id="gate"></div>
+
+<div id="app" hidden>
+
+  <header class="appbar">
+    <button class="back" id="btn-back" hidden aria-label="Voltar">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h1 id="bar-title">Início</h1>
+    <span class="count" id="bar-count"></span>
+  </header>
+
+  <main class="screen on" id="s-inicio"></main>
+  <main class="screen" id="s-lista"></main>
+  <main class="screen" id="s-detalhe"></main>
+  <main class="screen" id="s-nova"></main>
+  <main class="screen" id="s-historico"></main>
+  <main class="screen" id="s-perfil"></main>
+
+  <nav class="tabbar">
+    <button class="tab on" data-tab="inicio">
+      <svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Início
+    </button>
+    <div class="tab-wrap">
+      <button class="tab" data-tab="lista">
+        <svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1.2"/><circle cx="3.5" cy="12" r="1.2"/><circle cx="3.5" cy="18" r="1.2"/></svg>Campanhas
+      </button>
+      <span class="dot" id="dot" hidden>0</span>
+    </div>
+    <button class="fab" id="fab" aria-label="Nova campanha">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <button class="tab" data-tab="historico">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 1.9"/></svg>Histórico
+    </button>
+    <button class="tab" data-tab="perfil">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.4-3.6 4.2-5.4 7.5-5.4s6.1 1.8 7.5 5.4"/></svg>Perfil
+    </button>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="sheet" id="sheet">
+    <div class="sheet-in">
+      <h3>Reprovar campanha</h3>
+      <p id="sheet-sub"></p>
+      <textarea id="motivo" placeholder="Motivo da reprova (o coordenador vai ler isso)"></textarea>
+      <div class="sheet-btns">
+        <button class="btn btn-ghost" id="sheet-cancel">Voltar</button>
+        <button class="btn btn-red" id="sheet-ok">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="config.js"></script>
+<script type="module" src="app.js"></script>
+<script>
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
+</script>
+</body>
+</html>
