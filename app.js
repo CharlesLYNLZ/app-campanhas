@@ -438,15 +438,23 @@ function pintarPerfil(){
 }
 
 /* ---------------- Excel ---------------- */
+// Converte data ISO ('YYYY-MM-DD...') em Date real (meio-dia UTC evita
+// virada de dia por fuso horário); célula vazia quando não há valor.
+const dataExcel = s => {
+  if(!s) return '';
+  const [ano,mes,dia] = String(s).slice(0,10).split('-').map(Number);
+  return new Date(Date.UTC(ano, mes-1, dia));
+};
+
 function exportar(){
   if(!dados.length){ toast('Não há nada para exportar ainda.'); return; }
   if(typeof XLSX === 'undefined'){ toast('A biblioteca de Excel não carregou. Recarregue a página.'); return; }
   const linhas = dados.map(c => { const k = calc(c); return {
-    'ID':c.codigo,'Data Solicitação':dt(c.criado_em),'Solicitante':c.solicitante_nome,
+    'ID':c.codigo,'Data Solicitação':dataExcel(c.criado_em),'Solicitante':c.solicitante_nome,
     'Cliente':c.cliente,'Laboratório':c.laboratorio,'Nome da Campanha':c.campanha,
     'Tipo de Campanha':c.tipo,'Mecânica / Descrição':c.mecanica,
     'Investimento LYNKZ (R$)':k.invL,'Investimento Indústria (R$)':k.invI,'Forma de Pagamento':c.forma_pagamento,
-    'Data Início':dt(c.data_inicio),'Data Fim':dt(c.data_fim),
+    'Data Início':dataExcel(c.data_inicio),'Data Fim':dataExcel(c.data_fim),
     'Duração (dias)':dias(c.data_inicio,c.data_fim)||'',
     'Tipo de Meta':c.tipo_meta,'Meta do Cliente (R$)':+c.meta||0,
     'Tem Rebate':k.reb>0?'Sim':'Não','% Rebate':c.rebate_pct?(+c.rebate_pct)/100:'',
@@ -454,13 +462,34 @@ function exportar(){
     'Teto do Rebate (R$)':+c.rebate_teto||'','Rebate Estimado (R$)':k.reb||0,
     'Custo Total (R$)':k.total,'% Custo Total / Meta':k.pctMeta==null?'':k.pctMeta,
     'Status':c.status,'Aprovador':c.aprovador_nome||'',
-    'Data da Decisão':c.data_decisao?dt(c.data_decisao):'',
+    'Data da Decisão':dataExcel(c.data_decisao),
     'Motivo da Reprova':c.motivo||'','Observações':c.observacoes||''
   };});
   const ws = XLSX.utils.json_to_sheet(linhas);
-  ws['!cols'] = [{wch:11},{wch:15},{wch:16},{wch:26},{wch:15},{wch:26},{wch:24},{wch:38},
-    {wch:19},{wch:19},{wch:21},{wch:12},{wch:12},{wch:13},{wch:16},{wch:19},{wch:11},{wch:10},
-    {wch:26},{wch:24},{wch:18},{wch:20},{wch:17},{wch:18},{wch:12},{wch:16},{wch:15},{wch:30},{wch:28}];
+
+  const nLinhas = linhas.length;
+  const aplicarFormato = (colunas, fmt) => colunas.forEach(col => {
+    for(let l=2; l<=nLinhas+1; l++){
+      const cel = ws[col+l];
+      if(cel && cel.v!==undefined && cel.v!=='') cel.z = fmt;
+    }
+  });
+  aplicarFormato(['B','L','M','AA'], 'dd/mm/yyyy');              // datas
+  aplicarFormato(['I','J','P','U','V','W'], '"R$" #,##0.00');    // moeda
+  aplicarFormato(['R','X'], '0.0%');                             // percentual
+
+  // largura das colunas ajustada ao conteúdo (mín. do cabeçalho, máx. 40)
+  const cabecalho = Object.keys(linhas[0]);
+  ws['!cols'] = cabecalho.map(nome => {
+    let max = nome.length;
+    linhas.forEach(l => {
+      const v = l[nome];
+      const texto = v instanceof Date ? '00/00/0000' : String(v ?? '');
+      if(texto.length > max) max = texto.length;
+    });
+    return { wch: Math.min(max + 2, 40) };
+  });
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Campanhas');
   XLSX.writeFile(wb, `Extrato_Campanhas_${new Date().toISOString().slice(0,10)}.xlsx`);
