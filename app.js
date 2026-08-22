@@ -79,9 +79,11 @@ function mostrarLogin(){
     <div class="gate-in">
       ${marca()}
       <h2>Bem-vindo de volta</h2>
-      <p class="sub">Entre com o e-mail da empresa. Enviamos um link de acesso — sem senha para decorar.</p>
+      <p class="sub">Entre com o e-mail e a senha da empresa.</p>
       <div class="field"><label>E-mail</label>
         <input id="g-email" type="email" inputmode="email" autocomplete="email" placeholder="seuemail@${esc(C.DOMINIO||'empresa.com.br')}"></div>
+      <div class="field"><label>Senha</label>
+        <input id="g-senha" type="password" autocomplete="current-password" placeholder="Sua senha"></div>
       <button class="btn btn-red" id="g-send">Entrar</button>
       <p class="gate-msg" id="g-msg"></p>
       <p class="ver">Online · v${esc(C.VERSAO||'1.0.0')}</p>
@@ -89,16 +91,22 @@ function mostrarLogin(){
 
   $('g-send').onclick = async () => {
     const email = ($('g-email').value||'').trim().toLowerCase();
+    const senha = $('g-senha').value||'';
     const msg = $('g-msg'); msg.className = 'gate-msg';
     if(!/^\S+@\S+\.\S+$/.test(email)){ msg.classList.add('err'); msg.textContent='Digite um e-mail válido.'; return; }
-    $('g-send').disabled = true; $('g-send').textContent = 'Enviando…';
-    const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.href.split('#')[0] } });
+    if(!senha){ msg.classList.add('err'); msg.textContent='Digite sua senha.'; return; }
+    $('g-send').disabled = true; $('g-send').textContent = 'Entrando…';
+    const { error } = await sb.auth.signInWithPassword({ email, password: senha });
     $('g-send').disabled = false; $('g-send').textContent = 'Entrar';
-    msg.className = 'gate-msg ' + (error ? 'err' : 'ok');
-    msg.textContent = error ? 'Não foi possível enviar: ' + error.message
-                            : 'Link enviado. Abra seu e-mail neste mesmo celular e toque no link.';
+    if(error){
+      msg.className = 'gate-msg err';
+      msg.textContent = /invalid login credentials/i.test(error.message)
+        ? 'E-mail ou senha inválidos.'
+        : 'Não foi possível entrar: ' + error.message;
+    }
   };
-  $('g-email').addEventListener('keydown', e => { if(e.key==='Enter') $('g-send').click(); });
+  $('g-email').addEventListener('keydown', e => { if(e.key==='Enter') $('g-senha').focus(); });
+  $('g-senha').addEventListener('keydown', e => { if(e.key==='Enter') $('g-send').click(); });
 }
 
 async function sair(){
