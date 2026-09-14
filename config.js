@@ -19,7 +19,10 @@ window.CONFIG = {
   MARCA: "LYNKZ",
   SUBMARCA: "CAMPANHAS",
   DOMINIO: "lynkz.com.br",
-  VERSAO: "1.0.0",
+  // Aparece no rodapé do login e da tela de Perfil — suba a cada deploy
+  // (junto com CACHE_NAME em sw.js) para confirmar visualmente no celular
+  // que a atualização chegou.
+  VERSAO: "1.2.0",
 
   // Faixas do indicador de custo sobre a meta.
   // 0.08 = 8%. Ajuste para a régua da sua operação.
@@ -30,6 +33,11 @@ window.CONFIG = {
   LABORATORIOS: ["Avert","BePet","Biogénesis Bagó Pet","Bionatural","Boehringer","Catlife","Centagro","Coolors","Farmina","Kelco","Nova D+","Nutripharme","OmniLab","Organnact Pet","Ouro Fino","Pet Delícia","Pet Next","Pet Nutrition","Premier","Special Dog","Vansil"],
   TIPOS: ["Campanha de prescrição","Bonificação (leve X pague Y)","Campanha de balconista","Rebate por meta","Ponto extra / exposição","Encarte / tabloide","Combo de produtos","Ação de sell-out"],
   METAS: ["Mensal","Trimestral","Anual","Do mês da campanha"],
+  // "Swile" é usado como string literal numa CHECK constraint do banco
+  // (campanhas_swile_valido, em schema.sql), que exige os dados do
+  // recebedor sempre que essa opção é escolhida. Não renomeie nem troque
+  // a grafia desse item sem migrar a constraint (e os dados já gravados)
+  // junto — senão a regra do banco para de bater com o valor salvo.
   PAGTO: ["Desconto em nota","Bonificação em produto","Depósito / verba","Swile"],
   BASES: ["Bonificação","Sell-in (compras do cliente)","Sell-out (vendas do cliente)","Faturamento no período"],
   GATILHOS: ["Ao atingir 100% da meta","A partir de 80% da meta","Escalonado por faixa","Sobre todo o volume comprado"]

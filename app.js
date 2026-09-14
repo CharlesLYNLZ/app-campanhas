@@ -14,6 +14,44 @@ const esc  = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>
 const dias = (a,b) => (a&&b) ? Math.round((new Date(b)-new Date(a))/864e5)+1 : null;
 const $    = id => document.getElementById(id);
 
+/* ---------------- Swile: máscaras e validação ----------------
+   Espelham em JS a mesma regra que vive em schema.sql (cpf_valido() e a
+   constraint campanhas_swile_valido), para dar feedback na hora — mas quem
+   de fato barra dado inválido é sempre o banco. */
+const soDigitos = s => String(s||'').replace(/\D/g,'');
+
+function maskCPF(v){
+  const d = soDigitos(v).slice(0,11);
+  return d.replace(/(\d{3})(\d)/,'$1.$2')
+          .replace(/(\d{3})(\d)/,'$1.$2')
+          .replace(/(\d{3})(\d{1,2})$/,'$1-$2');
+}
+function maskTelefone(v){
+  const d = soDigitos(v).slice(0,11);
+  if(d.length > 10) return d.replace(/(\d{2})(\d{5})(\d{0,4})/, (m,a,b,c)=>`(${a}) ${b}${c?'-'+c:''}`);
+  if(d.length > 6)  return d.replace(/(\d{2})(\d{4})(\d{0,4})/, (m,a,b,c)=>`(${a}) ${b}${c?'-'+c:''}`);
+  if(d.length > 2)  return d.replace(/(\d{2})(\d{0,4})/, (m,a,b)=>`(${a}) ${b}`);
+  if(d.length > 0)  return `(${d}`;
+  return '';
+}
+// Algoritmo oficial dos dígitos verificadores (módulo 11) + rejeição de
+// sequências repetidas (000.000.000-00 etc.), que passam na conta mas não
+// são CPFs reais.
+function cpfValido(cpf){
+  const d = soDigitos(cpf);
+  if(d.length !== 11) return false;
+  if(/^(\d)\1{10}$/.test(d)) return false;
+  const n = d.split('').map(Number);
+  const dv = fatorInicial => {
+    let soma = 0, peso = fatorInicial;
+    for(let i=0; i<fatorInicial-1; i++) soma += n[i]*peso--;
+    const resto = soma % 11;
+    return resto < 2 ? 0 : 11 - resto;
+  };
+  return dv(10)===n[9] && dv(11)===n[10];
+}
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /* Custo real = investimento LYNKZ + investimento indústria + rebate estimado (devido se o cliente bater a meta) */
 function calc(c){
   const invL=+c.investimento_lynkz||0, invI=+c.investimento_industria||0, inv=invL+invI;
@@ -41,7 +79,8 @@ const ICO = {
   check:'<svg viewBox="0 0 24 24"><path d="M4 12.5l5.5 5.5L20 7"/></svg>',
   lista:'<svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/></svg>',
   baixar:'<svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M4 20h16"/></svg>',
-  busca:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>'
+  busca:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>',
+  alerta:'<svg viewBox="0 0 24 24"><path d="M12 3.5L21.5 20h-19L12 3.5z"/><path d="M12 9.5v5"/><path d="M12 17.3v.1"/></svg>'
 };
 const PIN = `<svg class="pin" viewBox="0 0 34 38"><path d="M17 1C8.7 1 2 7.7 2 16c0 10.5 13.2 20.4 13.8 20.8a2 2 0 002.4 0C18.8 36.4 32 26.5 32 16 32 7.7 25.3 1 17 1z" fill="var(--red)"/><circle cx="17" cy="15.5" r="8.5" fill="#fff"/><path d="M12.7 15.6l3 3 5.6-6" stroke="var(--red)" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const LOGO = `<div class="logo">${PIN}<div class="wordmark"><img src="logo.png" alt="LYNKZ"><span>${'{SUB}'}</span></div></div>`;
@@ -273,6 +312,16 @@ function abrir(id){
       ${c.observacoes?`<div class="line stack"><dt>Observações</dt><dd>${esc(c.observacoes)}</dd></div>`:''}
     </div>
 
+    ${c.forma_pagamento==='Swile'?`
+    <p class="seclabel">Dados de quem vai receber o Swile</p>
+    <div class="block">
+      <div class="line"><dt>Nome completo</dt><dd>${esc(c.swile_nome_completo)||'—'}</dd></div>
+      <div class="line"><dt>CPF</dt><dd>${c.swile_cpf?esc(maskCPF(c.swile_cpf)):'—'}</dd></div>
+      <div class="line"><dt>Data de nascimento</dt><dd>${dt(c.swile_data_nascimento)}</dd></div>
+      <div class="line"><dt>E-mail</dt><dd>${esc(c.swile_email)||'—'}</dd></div>
+      <div class="line"><dt>Telefone</dt><dd>${c.swile_telefone?esc(maskTelefone(c.swile_telefone)):'—'}</dd></div>
+    </div>`:''}
+
     ${k.reb>0?`
     <p class="seclabel">Rebate</p>
     <div class="block">
@@ -327,6 +376,38 @@ function pintarNova(){
     <p class="hint">LYNKZ sai do caixa agora. Indústria é a bonificação prometida, paga no mês seguinte.</p>
     <div class="field"><label>Forma de pagamento</label><select id="f-pag">${op(C.PAGTO,'Selecione')}</select></div>
 
+    <div id="swile-box" hidden>
+      <p class="seclabel">Dados de quem vai receber o Swile</p>
+      <div class="field" id="fld-sw-nome">
+        <label>Nome completo</label>
+        <input id="f-sw-nome" placeholder="Nome completo do recebedor">
+        <p class="erro-msg" id="err-sw-nome" hidden></p>
+      </div>
+      <div class="two">
+        <div class="field" id="fld-sw-cpf">
+          <label>CPF</label>
+          <input id="f-sw-cpf" inputmode="numeric" placeholder="000.000.000-00" maxlength="14">
+          <p class="erro-msg" id="err-sw-cpf" hidden></p>
+        </div>
+        <div class="field" id="fld-sw-nasc">
+          <label>Data de nascimento</label>
+          <input id="f-sw-nasc" type="date">
+          <p class="erro-msg" id="err-sw-nasc" hidden></p>
+        </div>
+      </div>
+      <div class="field" id="fld-sw-email">
+        <label>E-mail</label>
+        <input id="f-sw-email" type="email" inputmode="email" placeholder="nome@exemplo.com">
+        <p class="erro-msg" id="err-sw-email" hidden></p>
+      </div>
+      <div class="field" id="fld-sw-tel">
+        <label>Telefone</label>
+        <input id="f-sw-tel" inputmode="numeric" placeholder="(00) 00000-0000" maxlength="15">
+        <p class="erro-msg" id="err-sw-tel" hidden></p>
+      </div>
+      <p class="hint">Pagamento via Swile é feito direto para essa pessoa — por isso os dados são obrigatórios.</p>
+    </div>
+
     <p class="seclabel">Contrapartida do cliente</p>
     <div class="field"><label>Tipo de meta</label><select id="f-tm">${op(C.METAS,'Selecione')}</select></div>
     <div class="field"><label>Meta do cliente (R$)</label><input id="f-meta" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div>
@@ -347,6 +428,61 @@ function pintarNova(){
     <p class="hint">Cliente, laboratório, nome da campanha e os dois valores de investimento são obrigatórios.</p>`;
 
   const v = id => ($(id).value||'').trim();
+
+  /* ---- bloco condicional Swile ---- */
+  function atualizarSwileBox(){
+    const on = v('f-pag') === 'Swile';
+    $('swile-box').hidden = !on;
+    if(!on){
+      ['f-sw-nome','f-sw-cpf','f-sw-nasc','f-sw-email','f-sw-tel'].forEach(id => { $(id).value = ''; });
+      limparErrosSwile();
+    }
+  }
+  $('f-pag').addEventListener('change', atualizarSwileBox);
+  $('f-sw-cpf').addEventListener('input', e => { e.target.value = maskCPF(e.target.value); });
+  $('f-sw-tel').addEventListener('input', e => { e.target.value = maskTelefone(e.target.value); });
+
+  function limparErrosSwile(){
+    ['nome','cpf','nasc','email','tel'].forEach(campo => {
+      $('fld-sw-'+campo).classList.remove('erro');
+      const e = $('err-sw-'+campo); e.hidden = true; e.innerHTML = '';
+    });
+  }
+  function marcarErroSwile(campo, msg){
+    $('fld-sw-'+campo).classList.add('erro');
+    const e = $('err-sw-'+campo);
+    e.hidden = false;
+    e.innerHTML = ICO.alerta + `<span>${esc(msg)}</span>`;
+  }
+  // Bloqueia o envio quando a forma de pagamento é Swile e algum dos cinco
+  // campos está vazio ou inválido. Mesma régua da CHECK constraint do
+  // banco (schema.sql) — aqui só para avisar antes de tentar salvar.
+  function validarSwile(){
+    limparErrosSwile();
+    if(v('f-pag') !== 'Swile') return true;
+    let ok = true;
+
+    if(v('f-sw-nome').split(/\s+/).filter(Boolean).length < 2){
+      marcarErroSwile('nome','Informe nome e sobrenome.'); ok = false;
+    }
+    if(!cpfValido(v('f-sw-cpf'))){
+      marcarErroSwile('cpf','CPF inválido. Confira os números.'); ok = false;
+    }
+    const nasc = v('f-sw-nasc');
+    if(!nasc){
+      marcarErroSwile('nasc','Informe a data de nascimento.'); ok = false;
+    } else if(new Date(nasc+'T00:00:00') > new Date()){
+      marcarErroSwile('nasc','A data não pode ser no futuro.'); ok = false;
+    }
+    if(!EMAIL_RE.test(v('f-sw-email'))){
+      marcarErroSwile('email','Digite um e-mail válido.'); ok = false;
+    }
+    const tel = soDigitos(v('f-sw-tel'));
+    if(tel.length !== 10 && tel.length !== 11){
+      marcarErroSwile('tel','Informe o telefone com DDD (10 ou 11 números).'); ok = false;
+    }
+    return ok;
+  }
 
   function previa(){
     const on = $('f-rb-on').checked;
@@ -372,7 +508,9 @@ function pintarNova(){
     const rbOn = $('f-rb-on').checked;
     if(rbOn && !(parseFloat(v('f-rb-pct'))>0)){ toast('Informe o % de rebate ou desmarque a opção.'); return; }
     if(rbOn && !(parseFloat(v('f-meta'))>0)){ toast('Rebate precisa da meta do cliente para ser calculado.'); return; }
+    if(!validarSwile()){ toast('Confira os dados de quem vai receber o Swile.'); return; }
 
+    const swileOn = v('f-pag') === 'Swile';
     $('f-send').disabled = true; $('f-send').textContent = 'Enviando…';
     const { error } = await sb.from('campanhas').insert({
       cliente:v('f-cliente'), laboratorio:v('f-lab'), campanha:v('f-camp'),
@@ -385,6 +523,11 @@ function pintarNova(){
       rebate_teto: rbOn ? (parseFloat(v('f-rb-teto'))||0) : 0,
       rebate_base: rbOn ? (v('f-rb-base')||null) : null,
       rebate_gatilho: rbOn ? (v('f-rb-gat')||null) : null,
+      swile_nome_completo: swileOn ? v('f-sw-nome') : null,
+      swile_cpf:            swileOn ? soDigitos(v('f-sw-cpf')) : null,
+      swile_data_nascimento: swileOn ? v('f-sw-nasc') : null,
+      swile_email:          swileOn ? v('f-sw-email') : null,
+      swile_telefone:       swileOn ? soDigitos(v('f-sw-tel')) : null,
       observacoes:v('f-obs')||null, status:'Pendente',
       solicitante_id: perfil.id, solicitante_nome: perfil.nome
     });
@@ -438,12 +581,15 @@ function pintarPerfil(){
 }
 
 /* ---------------- Excel ---------------- */
-// Converte data ISO ('YYYY-MM-DD...') em Date real (meio-dia UTC evita
-// virada de dia por fuso horário); célula vazia quando não há valor.
+// Converte data ISO ('YYYY-MM-DD...') em Date real à meia-noite local.
+// O conversor de data->serial da biblioteca xlsx é baseado em horário
+// local (usa getTimezoneOffset internamente); ancorar em UTC fazia a
+// data cair um dia antes em fusos negativos (ex.: -03:00). Célula vazia
+// quando não há valor.
 const dataExcel = s => {
   if(!s) return '';
   const [ano,mes,dia] = String(s).slice(0,10).split('-').map(Number);
-  return new Date(Date.UTC(ano, mes-1, dia));
+  return new Date(ano, mes-1, dia);
 };
 
 function exportar(){
@@ -463,7 +609,12 @@ function exportar(){
     'Custo Total (R$)':k.total,'% Custo Total / Meta':k.pctMeta==null?'':k.pctMeta,
     'Status':c.status,'Aprovador':c.aprovador_nome||'',
     'Data da Decisão':dataExcel(c.data_decisao),
-    'Motivo da Reprova':c.motivo||'','Observações':c.observacoes||''
+    'Motivo da Reprova':c.motivo||'','Observações':c.observacoes||'',
+    'Nome do Recebedor Swile':c.swile_nome_completo||'',
+    'CPF do Recebedor Swile':c.swile_cpf?maskCPF(c.swile_cpf):'',
+    'Data de Nascimento do Recebedor':dataExcel(c.swile_data_nascimento),
+    'E-mail do Recebedor Swile':c.swile_email||'',
+    'Telefone do Recebedor Swile':c.swile_telefone?maskTelefone(c.swile_telefone):''
   };});
   const ws = XLSX.utils.json_to_sheet(linhas);
 
@@ -474,7 +625,7 @@ function exportar(){
       if(cel && cel.v!==undefined && cel.v!=='') cel.z = fmt;
     }
   });
-  aplicarFormato(['B','L','M','AA'], 'dd/mm/yyyy');              // datas
+  aplicarFormato(['B','L','M','AA','AF'], 'dd/mm/yyyy');         // datas (AF = Data de Nascimento do Recebedor)
   aplicarFormato(['I','J','P','U','V','W'], '"R$" #,##0.00');    // moeda
   aplicarFormato(['R','X'], '0.0%');                             // percentual
 

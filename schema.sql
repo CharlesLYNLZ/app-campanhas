@@ -86,6 +86,104 @@ begin
   end if;
 end $$;
 
+-- ---------- SWILE: DADOS DE QUEM VAI RECEBER O VALOR ----------
+-- Quando forma_pagamento = 'Swile', a campanha precisa registrar quem vai
+-- receber o pagamento. CPF e telefone são gravados SÓ COM DÍGITOS (sem
+-- ponto, traço, barra ou parênteses) — a máscara de digitação é só visual,
+-- feita no app.js; o banco sempre recebe e guarda dígito puro.
+alter table campanhas add column if not exists swile_nome_completo   text;
+alter table campanhas add column if not exists swile_cpf             text;
+alter table campanhas add column if not exists swile_data_nascimento date;
+alter table campanhas add column if not exists swile_email           text;
+alter table campanhas add column if not exists swile_telefone        text;
+
+-- Valida CPF pelo algoritmo oficial dos dígitos verificadores (módulo 11)
+-- e rejeita sequências repetidas (000.000.000-00, 111.111.111-11 etc.),
+-- que passam na conta de dígitos mas não são CPFs reais.
+create or replace function public.cpf_valido(cpf text)
+returns boolean
+language plpgsql
+immutable
+as $$
+declare
+  d    text := regexp_replace(coalesce(cpf,''), '\D', '', 'g');
+  n    int[];
+  soma int; resto int; dv1 int; dv2 int; k int; peso int;
+begin
+  if length(d) <> 11 then return false; end if;
+  if d ~ '^(\d)\1{10}$' then return false; end if;
+
+  -- "g" aqui é só o apelido da coluna do generate_series; "k" é a variável
+  -- de loop mais abaixo. Nomes iguais aos das declarações do começo da
+  -- função dão erro 42702 (column reference is ambiguous) — por isso os
+  -- dois têm nome próprio, sem repetir "i".
+  n := array(select substring(d from g for 1)::int from generate_series(1,11) g);
+
+  soma := 0; peso := 10;
+  for k in 1..9 loop
+    soma := soma + n[k]*peso;
+    peso := peso - 1;
+  end loop;
+  resto := soma % 11;
+  dv1 := case when resto < 2 then 0 else 11 - resto end;
+  if dv1 <> n[10] then return false; end if;
+
+  soma := 0; peso := 11;
+  for k in 1..10 loop
+    soma := soma + n[k]*peso;
+    peso := peso - 1;
+  end loop;
+  resto := soma % 11;
+  dv2 := case when resto < 2 then 0 else 11 - resto end;
+  if dv2 <> n[11] then return false; end if;
+
+  return true;
+end;
+$$;
+
+-- Só permite gravar (inserir ou atualizar) uma campanha com forma_pagamento
+-- 'Swile' (string exata — é o valor exato da opção em config.js PAGTO,
+-- amarrada aqui) se os cinco campos do recebedor estiverem preenchidos e
+-- válidos. Qualquer outra forma de pagamento passa livre, sem exigir nada.
+--
+-- NOT VALID: campanhas Swile antigas, cadastradas antes desta regra existir,
+-- não são checadas retroativamente — mas qualquer INSERT ou UPDATE novo
+-- (inclusive nelas) já é bloqueado se os dados não baterem. Veja a consulta
+-- logo abaixo para achar as antigas incompletas.
+alter table campanhas drop constraint if exists campanhas_swile_valido;
+alter table campanhas
+  add constraint campanhas_swile_valido
+  check (
+    forma_pagamento is distinct from 'Swile'
+    or (
+      swile_nome_completo is not null and trim(swile_nome_completo) ~ '\S+\s+\S+'
+      and swile_cpf is not null and public.cpf_valido(swile_cpf)
+      and swile_data_nascimento is not null
+      and swile_email is not null and swile_email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+      and swile_telefone is not null and swile_telefone ~ '^\d{10,11}$'
+    )
+  ) not valid;
+  -- Data no futuro não é barrada aqui de propósito: essa regra fica só no
+  -- app.js (validarSwile()). O banco só exige que a data exista.
+
+-- Não precisa rodar agora — é só para você mapear se há campanhas Swile
+-- antigas que ainda não atendem à regra nova:
+--
+-- select id, codigo, cliente, criado_em
+-- from campanhas
+-- where forma_pagamento = 'Swile'
+--   and not (
+--     swile_nome_completo is not null and trim(swile_nome_completo) ~ '\S+\s+\S+'
+--     and swile_cpf is not null and public.cpf_valido(swile_cpf)
+--     and swile_data_nascimento is not null
+--     and swile_email is not null and swile_email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+--     and swile_telefone is not null and swile_telefone ~ '^\d{10,11}$'
+--   );
+--
+-- Depois de completar (ou decidir não completar) essas linhas, você pode
+-- validar a constraint de vez com:
+-- alter table campanhas validate constraint campanhas_swile_valido;
+
 -- ---------- SEGURANÇA (quem pode fazer o quê) ----------
 alter table perfis enable row level security;
 alter table campanhas enable row level security;

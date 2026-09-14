@@ -20,6 +20,10 @@
   --green-soft:#E7F6EC;
   --amber:#A16207;
   --amber-soft:#FEF3C7;
+  /* Erro de validação: tom diferente do vermelho de ação (--red) de propósito,
+     para não confundir "toque aqui" com "isto está errado". */
+  --erro:#B45309;
+  --erro-soft:#FDECD8;
 
   --r-card:12px;
   --r-btn:9px;
@@ -165,6 +169,13 @@ button{cursor:pointer}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--red);outline:none}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .hint{font-size:11.5px;color:var(--ink-3);line-height:1.5;margin:9px 0 0}
+
+/* Estado de erro: nunca só cor (daltonismo) — borda mais grossa + ícone + texto. */
+.field.erro input,.field.erro select,.field.erro textarea{
+  border-width:2px;border-color:var(--erro)
+}
+.erro-msg{display:flex;align-items:flex-start;gap:6px;margin:6px 0 0;font-size:12px;line-height:1.45;color:var(--erro)}
+.erro-msg svg{width:15px;height:15px;flex:0 0 auto;margin-top:1px;stroke:var(--erro);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 
 .switch{
   background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);
