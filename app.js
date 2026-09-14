@@ -581,15 +581,19 @@ function pintarPerfil(){
 }
 
 /* ---------------- Excel ---------------- */
-// Converte data ISO ('YYYY-MM-DD...') em Date real à meia-noite local.
-// O conversor de data->serial da biblioteca xlsx é baseado em horário
-// local (usa getTimezoneOffset internamente); ancorar em UTC fazia a
-// data cair um dia antes em fusos negativos (ex.: -03:00). Célula vazia
-// quando não há valor.
+// Serial de data "pura" do Excel: dias inteiros desde 30/12/1899, sem
+// passar objeto Date nenhum para a biblioteca xlsx. Tentativas anteriores
+// (Date em UTC, Date em horário local) deixavam a conversão interna da
+// biblioteca colar um horário residual (ex.: 23:59:32) e, em alguns fusos,
+// a data caía um dia. Date.UTC() aqui não representa fuso — é só régua de
+// contagem de dias entre duas datas civis, por isso não sofre esse problema.
+// 30/12/1899 (não 31/12 nem 01/01/1900) é a época que o próprio Excel usa,
+// de propósito, para compensar o bug histórico dele que trata 1900 como
+// ano bissexto. Célula vazia quando não há valor.
 const dataExcel = s => {
   if(!s) return '';
   const [ano,mes,dia] = String(s).slice(0,10).split('-').map(Number);
-  return new Date(ano, mes-1, dia);
+  return Math.round((Date.UTC(ano, mes-1, dia) - Date.UTC(1899, 11, 30)) / 86400000);
 };
 
 function exportar(){

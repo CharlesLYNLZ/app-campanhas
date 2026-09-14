@@ -22,7 +22,7 @@ window.CONFIG = {
   // Aparece no rodapé do login e da tela de Perfil — suba a cada deploy
   // (junto com CACHE_NAME em sw.js) para confirmar visualmente no celular
   // que a atualização chegou.
-  VERSAO: "1.2.0",
+  VERSAO: "1.2.1",
 
   // Faixas do indicador de custo sobre a meta.
   // 0.08 = 8%. Ajuste para a régua da sua operação.
