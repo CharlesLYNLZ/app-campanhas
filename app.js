@@ -11,6 +11,7 @@ const brl  = n => Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,m
 const brl0 = n => Number(n||0).toLocaleString('pt-BR',{maximumFractionDigits:0});
 const dt   = s => s ? String(s).slice(0,10).split('-').reverse().join('/') : '—';
 const esc  = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const normaliza = s => String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
 const dias = (a,b) => (a&&b) ? Math.round((new Date(b)-new Date(a))/864e5)+1 : null;
 const $    = id => document.getElementById(id);
 
@@ -351,13 +352,51 @@ function abrir(id){
   irPara('detalhe', esc(c.cliente));
 }
 
+/* Select pesquisável: input de texto + lista filtrada, restrito às opções
+   dadas (o valor só "assume" um item exato da lista — texto livre não
+   confirmado é descartado ao sair do campo). */
+function montarComboBusca(idInput, idLista, opcoes){
+  const input = $(idInput), lista = $(idLista);
+  const filtra = termo => {
+    const alvo = normaliza(termo);
+    return alvo ? opcoes.filter(x => normaliza(x).includes(alvo)) : opcoes;
+  };
+  const abre = () => {
+    const itens = filtra(input.value);
+    lista.innerHTML = itens.length
+      ? itens.map(x => `<div class="combo-opt" data-v="${esc(x)}">${esc(x)}</div>`).join('')
+      : `<p class="combo-empty">Nenhum resultado</p>`;
+    lista.hidden = false;
+  };
+  input.addEventListener('focus', abre);
+  input.addEventListener('input', abre);
+  lista.addEventListener('mousedown', e => e.preventDefault());
+  lista.addEventListener('click', e => {
+    const opt = e.target.closest('.combo-opt');
+    if(!opt) return;
+    input.value = opt.dataset.v;
+    lista.hidden = true;
+  });
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      lista.hidden = true;
+      const match = opcoes.find(x => normaliza(x) === normaliza(input.value));
+      input.value = match || '';
+    }, 120);
+  });
+}
+
 /* ---------------- NOVA ---------------- */
 function pintarNova(){
   const op = (a,ph) => `<option value="">${ph}</option>` + a.map(x=>`<option>${esc(x)}</option>`).join('');
   $('s-nova').innerHTML = `
     <p class="seclabel">Dados do cliente</p>
     <div class="field"><label>Cliente</label><input id="f-cliente" placeholder="Razão social ou nome da loja"></div>
-    <div class="field"><label>Laboratório</label><select id="f-lab">${op(C.LABORATORIOS,'Selecione')}</select></div>
+    <div class="field combo">
+      <label>Laboratório</label>
+      <input id="f-lab" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Selecione ou digite para buscar">
+      <div class="combo-list" id="f-lab-lista" hidden></div>
+    </div>
 
     <p class="seclabel">A campanha</p>
     <div class="field"><label>Nome da campanha</label><input id="f-camp" placeholder="Ex.: Genéricos Setembro"></div>
@@ -428,6 +467,8 @@ function pintarNova(){
     <p class="hint">Cliente, laboratório, nome da campanha e os dois valores de investimento são obrigatórios.</p>`;
 
   const v = id => ($(id).value||'').trim();
+
+  montarComboBusca('f-lab','f-lab-lista', C.LABORATORIOS);
 
   /* ---- bloco condicional Swile ---- */
   function atualizarSwileBox(){

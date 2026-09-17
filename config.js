@@ -30,8 +30,8 @@ window.CONFIG = {
   FAIXA_AMARELA: 0.15, // até aqui, atenção; acima disso, vermelho
 
   // Listas dos menus suspensos. Edite à vontade.
-  LABORATORIOS: ["Avert","BePet","Biogénesis Bagó Pet","Bionatural","Boehringer","Catlife","Centagro","Coolors","Farmina","Kelco","Nova D+","Nutripharme","OmniLab","Organnact Pet","Ouro Fino","Pet Delícia","Pet Next","Pet Nutrition","Premier","Special Dog","Vansil"],
-  TIPOS: ["Campanha de prescrição","Bonificação (leve X pague Y)","Campanha de balconista","Rebate por meta","Ponto extra / exposição","Encarte / tabloide","Combo de produtos","Ação de sell-out"],
+  LABORATORIOS: ["Recurso próprio","Avert","BePet","Biogénesis Bagó Pet","Bionatural","Boehringer","Catlife","Centagro","Coolors","Farmina","Kelco","Nova D+","Nutripharme","OmniLab","Organnact Pet","Ouro Fino","Pet Delícia","Pet Next","Pet Nutrition","Premier","Special Dog","Vansil"],
+  TIPOS: ["Campanha de prescrição","Bonificação (leve X pague Y)","Campanha de balconista","Rebate por meta","Ponto extra / exposição","Encarte / tabloide","Combo de produtos","Ação de sell-out","Patrocínio de eventos"],
   METAS: ["Mensal","Trimestral","Anual","Do mês da campanha"],
   // "Swile" é usado como string literal numa CHECK constraint do banco
   // (campanhas_swile_valido, em schema.sql), que exige os dados do
